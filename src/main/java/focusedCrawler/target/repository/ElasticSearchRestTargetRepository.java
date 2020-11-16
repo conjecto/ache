@@ -2,24 +2,17 @@ package focusedCrawler.target.repository;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.http.HttpHost;
-import org.apache.http.client.config.RequestConfig;
+import focusedCrawler.target.repository.elasticsearch.ElasticSearchClientFactory;
 import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +43,7 @@ public class ElasticSearchRestTargetRepository implements TargetRepository {
     public ElasticSearchRestTargetRepository(ElasticSearchConfig config) {
         this.indexName = config.getIndexName();
         this.typeName = config.getTypeName();
-        this.client = createRestClient(config);
+        this.client = ElasticSearchClientFactory.createClient(config);
         this.createIndexMapping(indexName);
     }
 
@@ -184,38 +177,6 @@ public class ElasticSearchRestTargetRepository implements TargetRepository {
             throw new RuntimeException("Failed to serialize TargetModel to JSON.", e);
         }
         return targetAsJson;
-    }
-
-    public RestClient createRestClient(ElasticSearchConfig config) {
-
-        List<String> esHosts = config.getRestApiHosts();
-        List<HttpHost> hosts = new ArrayList<>();
-        for (String host : esHosts) {
-            try {
-                URL url = new URL(host);
-                hosts.add(new HttpHost(url.getHost(), url.getPort()));
-            } catch (MalformedURLException e) {
-                throw new RuntimeException("Failed to initialize Elasticsearch REST client. "
-                        + "Invalid host: " + host, e);
-            }
-        }
-
-        HttpHost[] httpHostsArray = (HttpHost[]) hosts.toArray(new HttpHost[hosts.size()]);
-        
-        client = RestClient.builder(httpHostsArray)
-            .setRequestConfigCallback(new RestClientBuilder.RequestConfigCallback() {
-                @Override
-                public RequestConfig.Builder customizeRequestConfig(RequestConfig.Builder requestConfigBuilder) {
-                    return requestConfigBuilder
-                            .setConnectTimeout(config.getRestConnectTimeout())
-                            .setSocketTimeout(config.getRestSocketTimeout());
-                }
-            })
-            .setMaxRetryTimeoutMillis(config.getRestMaxRetryTimeoutMillis())
-            .build();
-        
-        logger.info("Initialized Elasticsearch REST client for hosts: "+Arrays.toString(httpHostsArray));
-        return client;
     }
 
     @Override
